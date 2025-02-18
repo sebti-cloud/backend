@@ -5,7 +5,12 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
-const bcrypt = require('bcrypt');
+// Remplace ceci
+// const bcrypt = require('bcrypt');
+
+// Par ceci
+const bcrypt = require('bcryptjs');
+
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const axios = require('axios');
