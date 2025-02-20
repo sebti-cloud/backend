@@ -5,12 +5,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
-// Remplace ceci
-// const bcrypt = require('bcrypt');
-
-// Par ceci
 const bcrypt = require('bcryptjs');
-
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const axios = require('axios');
@@ -21,7 +16,7 @@ const secretKey = process.env.JWT_SECRET || 'votre_clé_secrète';
 
 // Configuration de CORS
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
 }));
 app.use(bodyParser.json());
@@ -43,7 +38,6 @@ const pool = new Pool({
   port: process.env.PG_PORT,
 });
 
-pool.connect().catch(err => console.error('Connection error', err.stack));
 pool.connect()
   .then(async client => {
     try {
@@ -54,7 +48,8 @@ pool.connect()
       client.release();
       console.error('Erreur lors de la connexion à la base de données :', err_1.stack);
     }
-  });
+  })
+  .catch(err => console.error('Connection error', err.stack));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -86,7 +81,22 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Route de test pour vérifier la connexion à la base de données
+app.get('/test-connection', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW()');
+    client.release();
+    res.send(`Connexion réussie : ${result.rows[0].now}`);
+  } catch (error) {
+    console.error('Erreur lors de la connexion à la base de données :', error.stack);
+    res.status(500).send('Erreur de connexion à la base de données');
+  }
+});
 
+app.listen(PORT, () => {
+  console.log(`Serveur en cours d'exécution sur le port ${PORT}`);
+});
 
 /*const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
