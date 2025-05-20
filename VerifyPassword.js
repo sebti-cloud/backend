@@ -1,9 +1,4 @@
-// Remplace ceci
-// const bcrypt = require('bcrypt');
-
-// Par ceci
-const bcrypt = require('bcryptjs');
-
+const bcrypt = require('bcrypt');
 
 const verifyPassword = async (plainPassword, hashedPassword) => {
   try {
