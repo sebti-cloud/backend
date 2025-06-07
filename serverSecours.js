@@ -1061,11 +1061,12 @@ app.post('/api/contact', async (req, res) => {
     res.status(500).send({ message: 'Message Sending Failed' });
   }
 });
+/*
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   updateOldProducts();
   setInterval(updateOldProducts, 24 * 60 * 60 * 1000); // Toutes les 24 heures
-});
+});*/
 
 const updateOldProducts = async () => {
   try {
@@ -1978,15 +1979,16 @@ app.get('/api/promotions', async (req, res) => {
 
 
 // … toutes tes routes ici
-
 app.use(express.static(path.join(__dirname, '../ecommerce_website/build')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../ecommerce_website/build', 'index.html'));
 });
 
-// NE PAS redéclarer PORT ici
 app.listen(PORT, () => {
   console.log(`✅ Serveur démarré sur le port ${PORT}`);
+  updateOldProducts();
+  setInterval(updateOldProducts, 24 * 60 * 60 * 1000); // Toutes les 24 heures
 });
+
 
 
