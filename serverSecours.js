@@ -29,6 +29,7 @@ app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
 }));
+app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 console.log('Variables d\'environnement chargées :', {
@@ -81,13 +82,34 @@ const authenticateToken = (req, res, next) => {
     if (err) {
       return res.sendStatus(403); // Forbidden
     }
-    if (user.role !== 'user') {
+    // Permettre l'accès pour les rôles 'user', 'admin' et 'Admin principal'
+    if (user.role !== 'user' && user.role !== 'admin' && user.role !== 'Admin principal') {
       return res.sendStatus(403); // Forbidden
     }
     req.user = user;
     next();
   });
 };
+
+
+
+/*const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) {
+    return res.sendStatus(403); // Forbidden
+  }
+  jwt.verify(token, secretKey, (err, user) => {
+    if (err) {
+      return res.sendStatus(403); // Forbidden
+    }
+    if (user.role !== 'user') {
+      return res.sendStatus(403); // Forbidden
+    }
+    req.user = user;
+    next();
+  });
+};*/
 
 // Middleware d'authentification pour les administrateurs
 const authenticateAdminToken = (req, res, next) => {
@@ -150,32 +172,36 @@ app.use((req, res, next) => {
   next();
 });
 
-// Route de connexion utilisateur (clients)
 app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const query = 'SELECT * FROM users WHERE email = $1';
-    const values = [email];
-    const result = await pool.query(query, values);
-
-    if (result.rows.length === 0) {
-      return res.status(401).send({ message: 'Invalid email or password' });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).send({ message: 'Email and password are required' });
     }
-
-    const user = result.rows[0];
-    const validPassword = await bcrypt.compare(password, user.password);
-
-    if (!validPassword) {
-      return res.status(401).send({ message: 'Invalid email or password' });
+    try {
+      const query = 'SELECT * FROM users WHERE email = $1';
+      const values = [email];
+      const result = await pool.query(query, values);
+  
+      if (result.rows.length === 0) {
+        return res.status(401).send({ message: 'Invalid email or password' });
+      }
+  
+      const user = result.rows[0];
+      const validPassword = await bcrypt.compare(password, user.password);
+  
+      if (!validPassword) {
+        return res.status(401).send({ message: 'Invalid email or password' });
+      }
+  
+      const token = jwt.sign({ id: user.id, email: user.email, role: 'user' }, secretKey, { expiresIn: '1h' });
+      res.status(200).send({ message: 'Login successful', token, userId: user.id });
+    } catch (err) {
+      console.error('Error logging in:', err);
+      res.status(500).send({ message: 'Failed to login' });
     }
-
-    const token = jwt.sign({ id: user.id, email: user.email, role: 'user' }, secretKey, { expiresIn: '1h' });
-    res.status(200).send({ message: 'Login successful', token, userId: user.id });
-  } catch (err) {
-    console.error('Error logging in:', err);
-    res.status(500).send({ message: 'Failed to login' });
-  }
-});
+  });
+  
+  
 
 
 app.delete('/api/promotions/:id', async (req, res) => {
@@ -205,7 +231,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer'); // Import de Nodemailer
 const axios = require('axios'); // Import d'Axios pour les requêtes HTTP
@@ -264,21 +290,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Middleware d'authentification
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) {
-    return res.sendStatus(403); // Forbidden
-  }
-  jwt.verify(token, secretKey, (err, user) => {
-    if (err) {
-      return res.sendStatus(403); // Forbidden
-    }
-    req.user = user;
-    next();
-  });
-};
 
 
 
@@ -393,6 +404,65 @@ app.post('/api/promotions', async (req, res) => {
 });
 
 
+
+
+
+
+
+
+
+
+
+// Route pour obtenir toutes les catégories
+app.get('/api/categories', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM categories');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ message: 'Failed to fetch categories' });
+  }
+});
+
+// Route pour ajouter une nouvelle catégorie
+app.post('/api/categories', async (req, res) => {
+  const { name } = req.body;
+
+  try {
+    const result = await pool.query('INSERT INTO categories (name) VALUES ($1) RETURNING *', [name]);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error adding category:', error);
+    res.status(500).json({ message: 'Failed to add category' });
+  }
+});
+
+// Route pour supprimer une catégorie
+app.delete('/api/categories/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query('DELETE FROM categories WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+    res.status(200).json({ message: 'Category deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ message: 'Failed to delete category' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
 // Routes d'administration sans authentification
 app.post('/api/products', upload.array('images', 10), async (req, res) => {
   const { name, category, types, price, details, quantity, lowStockThreshold, supplierId } = req.body;
@@ -429,6 +499,7 @@ app.post('/api/products', upload.array('images', 10), async (req, res) => {
 
 
 
+// Route pour mettre à jour les types d'un produit
 app.put('/api/products/:id/type', async (req, res) => {
   const { id } = req.params;
   const { types } = req.body;
@@ -567,6 +638,10 @@ app.delete('/api/products/:id', async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Supprimer les items de commande liés à ce produit
+      const deleteOrderItemsQuery = 'DELETE FROM order_items WHERE product_id = $1';
+      await client.query(deleteOrderItemsQuery, [id]);
 
       // Supprimer les produits aimés liés à ce produit
       const deleteLikedProductsQuery = 'DELETE FROM liked_products WHERE product_id = $1';
@@ -723,19 +798,7 @@ app.delete('/api/contacts/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/categories/:id', async (req, res) => {
-  const { id } = req.params;
 
-  try {
-    const query = 'DELETE FROM categories WHERE id = $1';
-    const values = [id];
-    await pool.query(query, values);
-    res.status(200).send({ message: 'Category deleted successfully' });
-  } catch (err) {
-    console.error('Error deleting category:', err);
-    res.status(500).send({ message: 'Failed to delete category' });
-  }
-});
 
 app.delete('/api/admins/:id', async (req, res) => {
   const { id } = req.params;
@@ -919,9 +982,10 @@ app.put('/api/update-tracking/:orderId', async (req, res) => {
 
 
 app.post('/api/admins', async (req, res) => {
-  const { firstName, lastName, email, username, phone, role } = req.body;
-  const hashedPassword = await bcrypt.hash('defaultpassword', 10); // Utiliser une clé de hachage par défaut pour les nouveaux admins
+  const { firstName, lastName, email, username, phone, role, password } = req.body; // Récupérer le mot de passe depuis req.body
+  
   try {
+    const hashedPassword = await bcrypt.hash(password, 10); // Hacher le mot de passe fourni
     const query = 'INSERT INTO admins (firstName, lastName, email, username, phone, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7)';
     const values = [firstName, lastName, email, username, phone, hashedPassword, role];
     await pool.query(query, values);
@@ -931,6 +995,7 @@ app.post('/api/admins', async (req, res) => {
     res.status(500).send({ message: 'Failed to add admin', error: err });
   }
 });
+
 
 app.get('/api/contacts', async (req, res) => {
   try {
@@ -943,16 +1008,7 @@ app.get('/api/contacts', async (req, res) => {
   }
 });
 
-app.get('/api/categories', async (req, res) => {
-  try {
-    const query = 'SELECT * FROM categories';
-    const result = await pool.query(query);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching categories:', err);
-    res.status(500).send('Failed to fetch categories');
-  }
-});
+
 
 app.post('/api/products/categories', async (req, res) => {
   const { productIds } = req.body;
@@ -1895,13 +1951,38 @@ app.get('/api/cart/:id', async (req, res) => {
 });
 */
 
+
+app.get('/api/admin/info', authenticateToken, async (req, res) => {
+  try {
+    const adminId = req.user.id; // Assurez-vous que le middleware d'authentification extrait l'id de l'admin
+    const query = 'SELECT username, role FROM admins WHERE id = $1';
+    const result = await pool.query(query, [adminId]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching admin info:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/promotions', async (req, res) => {
+  try {
+      const promotions = await getPromotionsFromDB(); // Fonction qui récupère les promotions de la base de données
+      res.json(promotions);
+  } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch promotions' });
+  }
+});
+
+
 // Servir les fichiers frontend après les routes API
 app.use(express.static(path.join(__dirname, '../ecommerce_website/build')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../ecommerce_website/build', 'index.html'));
 });
 
-// NE PAS redéclarer PORT ici
-app.listen(PORT, () => {
-  console.log(`✅ Serveur démarré sur le port ${PORT}`);
-});
+module.exports = app;
+
+
