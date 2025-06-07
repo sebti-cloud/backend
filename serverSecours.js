@@ -1977,12 +1977,16 @@ app.get('/api/promotions', async (req, res) => {
 });
 
 
-// Servir les fichiers frontend après les routes API
+// … toutes tes routes ici
+
 app.use(express.static(path.join(__dirname, '../ecommerce_website/build')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../ecommerce_website/build', 'index.html'));
 });
 
-module.exports = app;
+// NE PAS redéclarer PORT ici
+app.listen(PORT, () => {
+  console.log(`✅ Serveur démarré sur le port ${PORT}`);
+});
 
 
