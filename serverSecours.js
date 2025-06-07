@@ -1901,4 +1901,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../ecommerce_website/build', 'index.html'));
 });
 
-module.exports = app;
+// NE PAS redéclarer PORT ici
+app.listen(PORT, () => {
+  console.log(`✅ Serveur démarré sur le port ${PORT}`);
+});
