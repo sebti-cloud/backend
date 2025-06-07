@@ -13,6 +13,16 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const secretKey = process.env.JWT_SECRET || 'votre_clé_secrète';
+const client = require('./db');
+
+client.query('SELECT * FROM users', (err, res) => {
+  if (err) {
+    console.error('Database error:', err);
+  } else {
+    console.log('User data:', res.rows);
+  }
+});
+console.log('Variables d’environnement chargées :', process.env);
 
 // Configuration de CORS
 app.use(cors({
